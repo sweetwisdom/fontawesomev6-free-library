@@ -2,15 +2,17 @@
   <div class="flex flex-col w-full h-screen overflow-hidden bg-gray-100">
     <!-- Top search bar -->
     <div class="w-full bg-white shadow-md p-4 z-10">
-      <div class="container mx-auto flex flex-col md:flex-row items-center gap-4">
-        <h1 class="text-2xl font-bold text-gray-800 whitespace-nowrap">Icon Browser</h1>
+      <div class=" mx-auto flex flex-col md:flex-row items-center justify-arround gap-4">
+        <a  target="_blank" class="decoration-0"  href="https://fontawesome.com/search?ic=free"> <h1 class=" text-2xl font-bold text-gray-800 whitespace-nowrap">Font-awesome Library(6.7.2)</h1></a>
+       
         <div class="relative flex-grow">
           <span class="absolute inset-y-0 left-0 flex items-center pl-3">
-            <i class="fa fa-search text-gray-400"></i>
+            <i class="fa fa-search text-gray-400 "></i>
           </span>
           <input
             type="text"
             v-model="searchQuery"
+        
             placeholder="Search icons..."
             class="w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
@@ -38,6 +40,13 @@
           <h2 class="text-lg font-bold text-gray-800 mb-4">Categories</h2>
           <ul class="space-y-2">
             <li
+              @click="selectCategory('all')"
+              class="cursor-pointer p-2 rounded hover:bg-gray-200 transition-colors"
+              :class="{ 'bg-blue-100 font-semibold': selectedCategory === 'all' }"
+            >
+              <span>All Icons ({{ totalIconCount }})🔍</span>
+            </li>
+            <li
               v-for="(category, key) in iconData"
               :key="key + '-aa'"
               @click="selectCategory(key)"
@@ -51,10 +60,14 @@
       </div>
 
       <!-- Main content area for icons -->
-      <div class="flex-1 overflow-hidden overflow-y-auto  p-6">
+      <div
+        class="flex-1 overflow-hidden overflow-y-auto p-6"
+        ref="iconsContainer"
+        @scroll="handleScroll"
+      >
         <div class="mb-6">
           <h2 class="text-2xl font-bold text-gray-800">
-            {{ selectedCategoryLabel }} Icons
+            {{ currentCategoryLabel }} Icons
             <span class="text-sm font-normal text-gray-500">
               ({{ filteredIcons.length }} icons)
             </span>
@@ -62,20 +75,28 @@
         </div>
 
         <!-- Icon grid -->
-        <div class="grid grid-cols-2 overflow-hidden sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <div
+          class="grid grid-cols-2 overflow-hidden sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4"
+        >
           <div
             v-for="(icon, index) in visibleIcons"
             :key="index"
-            @click="copyIconCode(icon)"
+            @click="copyIconCode(icon.name, icon.category)"
             class="flex relative flex-col items-center justify-center p-4 rounded-lg bg-white shadow hover:shadow-lg transition-all transform hover:-translate-y-1 cursor-pointer border border-gray-200 group"
           >
             <div
               class="text-3xl mb-3 h-12 flex items-center justify-center"
               :style="{ color: getThemeColor() }"
             >
-              <i :class="`fa fa-${icon}`"></i>
+              <i :class="`fa fa-${icon.name}`"></i>
             </div>
-            <div class="text-xs text-center text-gray-600 truncate w-full">{{ icon }}</div>
+            <div class="text-xs text-center text-gray-600 truncate w-full">{{ icon.name }}</div>
+            <div
+              v-if="selectedCategory === 'all' || isSearchActive"
+              class="text-xs text-center text-gray-400 truncate w-full mt-1"
+            >
+              {{ getCategoryLabel(icon.category) }}
+            </div>
             <div
               class="absolute inset-0 bg-gray-900 bg-opacity-0 group-hover:bg-opacity-10 rounded-lg flex items-center justify-center transition-opacity opacity-0 group-hover:opacity-100"
             >
@@ -84,15 +105,15 @@
           </div>
         </div>
 
-        <!-- Load more button -->
-        <div v-if="visibleIcons.length < filteredIcons.length" class="flex justify-center mt-8">
-          <button
-            @click="loadMoreIcons"
-            class="px-6 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors"
-            :style="{ backgroundColor: getThemeColor(), color: 'white' }"
-          >
-            Load More Icons
-          </button>
+        <!-- Loading indicator -->
+        <div v-if="isLoadingMore" class="flex justify-center mt-8">
+          <div class="flex items-center space-x-2">
+            <div
+              class="animate-spin rounded-full h-6 w-6 border-b-2"
+              :style="{ borderColor: getThemeColor() }"
+            ></div>
+            <span class="text-gray-600">Loading more icons...</span>
+          </div>
         </div>
 
         <!-- No results message -->
@@ -112,7 +133,7 @@
       class="fixed bottom-6 right-6 bg-gray-800 text-white px-4 py-2 rounded-md shadow-lg flex items-center notification-fade"
       @animationend="showCopyNotification = false"
     >
-      <i class="fa fa-check mr-2"></i> Copied to clipboard!
+      <i class="fa fa-check mr-2"></i> {{ copyMessage }}
     </div>
   </div>
 </template>
@@ -136,6 +157,11 @@ interface ColorTheme {
   bg: string
 }
 
+interface IconItem {
+  name: string
+  category: string
+}
+
 // Color themes
 const colorThemes = [
   { name: 'Blue', value: 'blue', bg: '#3b82f6' },
@@ -148,42 +174,74 @@ const colorThemes = [
 
 // State
 const iconData = ref<IconData>({})
-const selectedCategory = ref<string>('')
+const selectedCategory = ref<string>('all')
 const searchQuery = ref<string>('')
-const visibleIconCount = ref<number>(30)
+const visibleIconCount = ref<number>(60)
 const isLoading = ref<boolean>(true)
+const isLoadingMore = ref<boolean>(false)
 const currentTheme = ref<string>('blue')
 const showCopyNotification = ref<boolean>(false)
+const copyMessage = ref<string>('')
+const iconsContainer = ref<HTMLElement | null>(null)
+const scrollThreshold = 200 // px from bottom to trigger loadMore
 
 // Load initial data
 onMounted(async () => {
   iconData.value = await getYamlData()
-
-  // Select the first category by default
-  if (Object.keys(iconData.value).length > 0) {
-    selectedCategory.value = Object.keys(iconData.value)[0]
-  }
-
   isLoading.value = false
 })
 
 // Computed properties
-const selectedCategoryLabel = computed(() => {
-  if (!selectedCategory.value || !iconData.value[selectedCategory.value]) return ''
+const totalIconCount = computed(() => {
+  return Object.values(iconData.value).reduce((total, category) => total + category.icons.length, 0)
+})
+
+const currentCategoryLabel = computed(() => {
+  if (selectedCategory.value === 'all') return 'All'
+  if (!iconData.value[selectedCategory.value]) return ''
   return iconData.value[selectedCategory.value].label
 })
 
+const isSearchActive = computed(() => {
+  return searchQuery.value.trim().length > 0
+})
+
+const allIcons = computed((): IconItem[] => {
+  const result: IconItem[] = []
+
+  // Gather all icons from all categories
+  Object.keys(iconData.value).forEach((categoryKey) => {
+    iconData.value[categoryKey].icons.forEach((iconName) => {
+      result.push({
+        name: iconName,
+        category: categoryKey,
+      })
+    })
+  })
+
+  return result
+})
+
 const filteredIcons = computed(() => {
-  if (!selectedCategory.value || !iconData.value[selectedCategory.value]) return []
-
-  const icons = iconData.value[selectedCategory.value].icons
-
-  if (!searchQuery.value.trim()) {
-    return icons
+  // If no search query and viewing a specific category
+  if (!isSearchActive.value && selectedCategory.value !== 'all') {
+    if (!iconData.value[selectedCategory.value]) return []
+    return iconData.value[selectedCategory.value].icons.map((name) => ({
+      name,
+      category: selectedCategory.value,
+    }))
   }
 
+  // If searching or viewing all icons
+  const allIconsList = allIcons.value
+
+  if (!isSearchActive.value) {
+    return allIconsList // Return all icons when no search query is active
+  }
+
+  // Filter by search query
   const query = searchQuery.value.toLowerCase()
-  return icons.filter((icon) => icon.toLowerCase().includes(query))
+  return allIconsList.filter((icon) => icon.name.toLowerCase().includes(query))
 })
 
 const visibleIcons = computed(() => {
@@ -196,21 +254,53 @@ const getThemeColor = () => {
   return theme ? theme.bg : '#3b82f6'
 }
 
+const getCategoryLabel = (categoryKey: string) => {
+  return iconData.value[categoryKey]?.label || categoryKey
+}
+
 const selectCategory = (category: string) => {
+  if (searchQuery.value) {
+    searchQuery.value = ''
+  }
   selectedCategory.value = category
-  visibleIconCount.value = 30 // Reset visible count when changing categories
+  visibleIconCount.value = 60 // Reset visible count when changing categories
+  // Scroll to top when changing categories
+  if (iconsContainer.value) {
+    iconsContainer.value.scrollTop = 0
+  }
 }
 
 const loadMoreIcons = () => {
-  visibleIconCount.value += 30
+  if (visibleIcons.value.length >= filteredIcons.value.length) return
+
+  isLoadingMore.value = true
+
+  // Simulate loading delay for better UX
+  setTimeout(() => {
+    visibleIconCount.value += 60
+    isLoadingMore.value = false
+  }, 300)
 }
 
-const copyIconCode = (icon: string) => {
+const handleScroll = (event: Event) => {
+  const target = event.target as HTMLElement
+  const { scrollTop, scrollHeight, clientHeight } = target
+
+  // Check if we're near the bottom of the scroll
+  if (scrollHeight - scrollTop - clientHeight < scrollThreshold) {
+    if (!isLoadingMore.value && visibleIcons.value.length < filteredIcons.value.length) {
+      loadMoreIcons()
+    }
+  }
+}
+
+const copyIconCode = (iconName: string, categoryKey: string) => {
   // Copy icon HTML to clipboard
-  const iconHTML = `<i class="fa fa-${icon}"></i>`
+  const iconHTML = `<i class="fa fa-${iconName}"></i>`
   navigator.clipboard.writeText(iconHTML)
 
   // Show notification
+  copyMessage.value = `Copied ${iconName} to clipboard!`
   showCopyNotification.value = true
   setTimeout(() => {
     showCopyNotification.value = false
@@ -219,7 +309,14 @@ const copyIconCode = (icon: string) => {
 
 // Reset visible count when search query changes
 watch(searchQuery, () => {
-  visibleIconCount.value = 30
+  if (searchQuery.value) {
+    selectedCategory.value = 'all'
+  }
+  visibleIconCount.value = 60
+  // Scroll to top when search changes
+  if (iconsContainer.value) {
+    iconsContainer.value.scrollTop = 0
+  }
 })
 </script>
 

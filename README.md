@@ -1,22 +1,22 @@
-# vue3-template
+# Font-awesome Library
 
-# 参考
 
-https://github.com/pure-admin/vue-pure-admin
 
-This template should help get you started developing with Vue 3 in Vite.
+这是一个纯净的Font-awesome (最新6.7.2)免费图标项目，快速查找Font-awesome图标，支持模糊搜索。
 
-## Recommended IDE Setup
+This is a clean Font Awesome free icons project for quickly searching Font Awesome icons, with support for fuzzy search.
 
-[VSCode](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
 
-## Type Support for `.vue` Imports in TS
 
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
 
-## Customize configuration
 
-See [Vite Configuration Reference](https://vite.dev/config/).
+![image-20250514143012390](./.imgs/image-20250514143012390.png)
+
+
+
+## search
+
+![image-20250514143332727](./.imgs/image-20250514143332727.png)
 
 ## Project Setup
 
@@ -36,21 +36,3 @@ pnpm dev
 pnpm build
 ```
 
-### Run End-to-End Tests with [Playwright](https://playwright.dev)
-
-```sh
-# Install browsers for the first run
-npx playwright install
-
-# When testing on CI, must build the project first
-pnpm build
-
-# Runs the end-to-end tests
-pnpm test:e2e
-# Runs the tests only on Chromium
-pnpm test:e2e --project=chromium
-# Runs the tests of a specific file
-pnpm test:e2e tests/example.spec.ts
-# Runs the tests in debug mode
-pnpm test:e2e --debug
-```

@@ -34,3 +34,4 @@ playwright-report/
 # SpecStory explanation file
 .specstory/.what-is-this.md
 .specstory/**
+html
